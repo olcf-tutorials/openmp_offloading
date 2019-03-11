@@ -135,5 +135,6 @@ $ cp pragmaext.vim $HOME/.vim/after/syntax/cpp
 With this extension, _OMPTGT_ and _ACCTGT_ macros will have the same color as other compiler directives.
 
 ## Sample guarding macros
-[tgt_guard.h](tgt_guard.h)
-[tgt_guard_c.h](tgt_guard_c.h)
+| Fortran | C/C++ |
+|---------|-------|
+[tgt_guard.h](tgt_guard.h) | [tgt_guard_c.h](tgt_guard_c.h) |
