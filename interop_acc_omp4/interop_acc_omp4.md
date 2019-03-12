@@ -1,4 +1,4 @@
-# Mixing OpenACC and OpenMP4.5 runtimes in the same program
+# Interoperability of CUDA, OpenACC and OpenMP4.5 runtimes in the same program
 
 The most widely used mechanism of Unified Virtual Address Space (UVAS) is CUDA Managed Memory, which allows (mostly) transparent access of device memory from the host. An excellent review of UVAS and CUDA managed memory can be found [here](http://on-demand.gputechconf.com/gtc/2018/presentation/s8430-everything-you-need-to-know-about-unified-memory.pdf). A related mechanism, while not considered part of UVAS, is the pinned host memory, which allows zero-copy access of host memory from the device. The two mechanisms allow both GPU and CPU to exchange pointers directly without deep copy, making complex data structures much more accessible in heterogeneous programming.
 
