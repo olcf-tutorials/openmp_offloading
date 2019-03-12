@@ -1,4 +1,4 @@
-# Mixiang OpenACC and OpenMP4.5 offloading directives in the same source files
+# Mixing OpenACC and OpenMP4.5 offloading directives in the same source files
 by Lixiang Luo, IBM Center of Excellence @ ORNL
 
 This tutorial offers a guide to safely write OpenACC and OpenMP4.5 offloading directives in the same source files.
@@ -8,6 +8,7 @@ OpenMP and OpenACC are both popular choices for directive-based GPU programming.
 Note that this tutorial is NOT about using OpenMP and OpenACC target offloading in the same process (compiler and runtime interoperability), which is an interesting but much more complicated subject.
 
 ## Fortran
+
 In Fortran, this can be done using macros, preferably inside comments to be more distinguishable from normal codes, like this:
 ```Fortran
 !_OMPTGT_(target teams distribute private(vt))
@@ -76,6 +77,7 @@ Compiler directives in fixed-form Fortran does not use an ampersand. Instead:
 ```
 
 ## C/C++
+
 Compiler directives in C/C++, including OpenACC and OpenMP directives, cannot be generated as a result of macro expansions. Instead, we use C99 _Pragma() preprocesing operator to achieve the same effects. We define the guarding macros as
 ```
 #ifdef _OL_OMP_
