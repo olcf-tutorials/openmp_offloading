@@ -1,6 +1,16 @@
-# Interoperability of CUDA, OpenACC and OpenMP4.5 runtimes in the same program
+# Interoperability of OpenACC and OpenMP4.5 runtimes in the same program
 
-The most widely used mechanism of Unified Virtual Address Space (UVAS) is CUDA Managed Memory, which allows (mostly) transparent access of device memory from the host. An excellent review of UVAS and CUDA managed memory can be found [here](http://on-demand.gputechconf.com/gtc/2018/presentation/s8430-everything-you-need-to-know-about-unified-memory.pdf). A related mechanism, while not considered part of UVAS, is the pinned host memory, which allows zero-copy access of host memory from the device. The two mechanisms allow both GPU and CPU to exchange pointers directly without deep copy, making complex data structures much more accessible in heterogeneous programming.
+## Why should we care about interoperability between OpenACC and OpenMP from different vendors?
+Here are some situations we may need to consider interoperability between OpenACC and OpenMP from different vendors:
+
+### Library dependency on different runtimes
+Different library vendors may choose to implement their codes using different paradigms. Suppose a program depends on two math libraries for GPU offloading: Library A and Library B. Library A is written with OpenACC and compiled with PGI, and Library B is written in OpenMP4.5 and compiled with XL. Such combination would require OpenACC and OpenMP4.5 runtimes to operate alongside each other. While passing data by making copies on the CPU memory is functional, directly sharing GPU data would be much more efficient.
+
+### Incremental porting between OpenACC and OpenMP
+Suppose you want to port an sizable OpenACC code to OpenMP using the new OpenMP4.5 target offloading directives, or vice versa. If starting from a CPU-only version is not an option, then an incremental porting strategy may be preferred. In fact, this is a common approach for porting pure CPU codes to GPU. By porting one kernel at a time, the program remains functional, so the results can be easily verified.
+
+### Debugging
+Sometimes a GPU kernel seems to fail without any apparent reason. Is it a compiler bug or just my own mistake? It may worth a try by simply changing to another paradigm using another compiler.
 
 ## A proof of concept
 
@@ -130,5 +140,4 @@ Results are identical, as expected, although the first kernel no longer runs on 
 
 While still with many restrictions, the combination of dynamically load libraries and CUDA managed memory offers an rather straightforward The current approach to achieve OpenACC/OpenMP4.5 offloading interoperability with minimal effort for additional coding. We will continue to explorer the possibilities on interoperability and post updates on this blog.
 
-## Mixing CUDA with OpenMP4.5
 
