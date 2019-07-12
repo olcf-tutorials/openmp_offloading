@@ -74,8 +74,10 @@ struct tnsrtrns_task
   std::vector<size_t> perm;
 
 // Description of shapes and strides {{{
-//  Note: for volume B, no coalescing attempt is made, so 
-//        source and target indix order are the same.
+//  Notes:
+//  1) for volume B, no coalescing attempt is made, so 
+//     source and target indix order are the same.
+//  2) all indices are 0-based
 //
 //  Member  | Vol | Flat index in |  Index order  | original name
 //  --------|-----|---------------|---------------|-----------
@@ -95,7 +97,10 @@ struct tnsrtrns_task
 //  dims = {41,13,11,9,76,50}
 //  perm = {1,2,3,5,0,4}
 //  q    = {4,0,1,2,5,3}
-//  (d[p[k]],k=0..5) = {13,11,9,50,41,76}
+//  h    = 3
+//  w    = {1,2,0}
+//  d[p[:]] = {13,11,9,50,41,76}
+//  q[w[:]] = {0,1,4}
 //  vol  = d0*d1*d2*d3*d4*d5
 //  va2i = {d1,d2,d0}    // va2i[2] is not important
 //  vb2i = {d3,d4,d5}    // vb2i[2] is not important
@@ -120,15 +125,18 @@ struct tnsrtrns_task
 //      *<k=1:m>(d[k]) = d[1]*d[2]*...*d[m] if m>=1
 //                       1                  if m<1
 //
+//  _*_(d[k0:k1]) - cumulative product
+//      d[k0]*d[k0+1]*...*d[k1]
+//
 //  Sort(p[]) - sorting function
 //      returns a sorted vector of all the elements in p.
 //
 //  Procedure:
 //
 //  Decide the splitting of vol A and B
-//    Find h, such that _*_(d[1:h])<=T and _*_(d[1:h+1])>T.
+//    Find h, such that _*_(d[0:h-1])<=T and _*_(d[0:h])>T.
 //
-//  * vb2i[] := d[ h : n-1 ]
+//  vb2i[] := d[ h : n-1 ]
 //
 //  p[<q>] := Sort(p[])
 //      length = n
@@ -138,16 +146,16 @@ struct tnsrtrns_task
 //      length = h
 //      d[<w>] is the shape for the write loop in each team iteration
 //
-//  * va2i[] := d[<w>]
+//  va2i[] := d[<w>]
 //      length = h
 //
-//  * ia2s[] := [ *<k=0:w[1]-1>(d[k]]) , *<k=0:w[2]-1>(d[k]), ... ]
+//  ia2s[] := [ *<k=0:w[0]-1>(d[k]]) , *<k=0:w[1]-1>(d[k]), ... ]
 //      length = h
 //
-//  * ia2g[] := [ *<k=0:q[w[1]]-1>(d[p[k]]) , *<k=0:q[w[2]]-1>(d[p[k]]) , ... ]
+//  ia2g[] := [ *<k=0:q[w[0]]-1>(d[p[k]]) , *<k=0:q[w[1]]-1>(d[p[k]]) , ... ]
 //      length = h
 //
-//  * ib2g[] := [ *<k=0:q[h+1]-1>(d[p[k]]) , *<k=0:q[h+2]-1>(d[p[k]]) , ... ]
+//  ib2g[] := [ *<k=0:q[h]-1>(d[p[k]]) , *<k=0:q[h+1]-1>(d[p[k]]) , ... ]
 //      lentgh = n-h
 //}}}
 

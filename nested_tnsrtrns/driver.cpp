@@ -74,34 +74,34 @@ int main(int argc, char *argv[])
   }
   std::cout << "Done! Total size: " << szTotal*sizeof(double)/1024/1024 << " MB" << std::endl ;
 
-//  double ts, te;
+  double ts, te;
+
 //
-////
-//// OpenMP4.5 mapped data_dst
-////
-//  ts=omp_get_wtime();
-//  #pragma omp parallel for schedule(dynamic,1) private(i_task)
-//  for (size_t it=0;it<n_task;it++)
-//  {
-//    i_task = q[it];
-//    c_tt_mapped(0,
-//      task_list[i_task].dim_a,
-//      task_list[i_task].dim_b,
-//      task_list[i_task].vol_a,
-//      task_list[i_task].vol_b,
-//      task_list[i_task].va2i,
-//      task_list[i_task].vb2i,
-//      task_list[i_task].ia2s,
-//      task_list[i_task].ia2g,
-//      task_list[i_task].ib2g,
-//      (const double*)(task_list[i_task].data_src),
-//      (double*)(task_list[i_task].data_dst));
-//  }
-//  #pragma omp taskwait
-//  te=omp_get_wtime();
-//  std::cout<<"OpenMP4.5 offload with mapped data_dst:"<<std::endl;
-//  std::cout<<te-ts<<std::endl;
+// OpenMP4.5 mapped data_dst
 //
+  ts=omp_get_wtime();
+  #pragma omp parallel for schedule(dynamic,1) private(i_task)
+  for (size_t it=0;it<n_task;it++)
+  {
+    i_task = q[it];
+    c_tt_mapped(0,
+      task_list[i_task].dim_a,
+      task_list[i_task].dim_b,
+      task_list[i_task].vol_a,
+      task_list[i_task].vol_b,
+      task_list[i_task].va2i,
+      task_list[i_task].vb2i,
+      task_list[i_task].ia2s,
+      task_list[i_task].ia2g,
+      task_list[i_task].ib2g,
+      (const double*)(task_list[i_task].data_src),
+      (double*)(task_list[i_task].data_dst));
+  }
+  #pragma omp taskwait
+  te=omp_get_wtime();
+  std::cout<<"OpenMP4.5 offload with mapped data_dst:"<<std::endl;
+  std::cout<<te-ts<<std::endl;
+
 //  std::cout << "Sanity check...";
 //  int d0=30,d1=21,d2=22,d3=25,d4=22,d5=25;
 //  int in0  = 2+d0*(2+d1*(2+d2*(2+d3*(2+d4*(0)))));
