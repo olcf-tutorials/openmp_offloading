@@ -1,0 +1,1 @@
+xlC -qsmp=omp -qoffload -O3 -std=c++11 tnsrtrns.cpp driver.cpp -o tt_xlomp4.x

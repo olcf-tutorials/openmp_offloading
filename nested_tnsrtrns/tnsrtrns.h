@@ -6,44 +6,14 @@
 #include <algorithm>
 #include <numeric>
 
-extern "C" typedef void (*c_tt_ptr)(
-  const int tile_size,
-  const int dim_a, const int dim_b,
-  const int vol_a, const int vol_b,
-  const int* __restrict__ shape_a, // output shape
-  const int* __restrict__ shape_b, // input shape
-  const int* __restrict__ stride_a_l, // local s stride for output shape
-  const int* __restrict__ stride_a_g, // global output stride for output shape
-  const int* __restrict__ stride_b, // global output stride for input shape
-  const double* __restrict__ data_in,
-  double* __restrict__ data_out);
-
-extern "C" void c_tt_cuda(
-  const int tile_size,
-  const int dim_a, const int dim_b,
-  const int vol_a, const int vol_b,
-  const int* __restrict__ shape_a, // output shape
-  const int* __restrict__ shape_b, // input shape
-  const int* __restrict__ stride_a_l, // local s stride for output shape
-  const int* __restrict__ stride_a_g, // global output stride for output shape
-  const int* __restrict__ stride_b, // global output stride for input shape
-  const double* __restrict__ data_in,
-  double* __restrict__ data_out);
-
-extern "C" void c_tt_(
-  const int tile_size,
-  const int dim_a, const int dim_b,
-  const int vol_a, const int vol_b,
-  const int* __restrict__ shape_a, // output shape
-  const int* __restrict__ shape_b, // input shape
-  const int* __restrict__ stride_a_l, // local s stride for output shape
-  const int* __restrict__ stride_a_g, // global output stride for output shape
-  const int* __restrict__ stride_b, // global output stride for input shape
-  const double* __restrict__ data_in,
-  double* __restrict__ data_out);
+#ifdef _NO_CUDA_
+#define cudaMallocManaged(p,s) posix_memalign((p),128,(s))
+#define cudaFree(p) free((p))
+#else
+#include <cuda_runtime.h>
+#endif
 
 extern "C" void c_tt_mapped(
-  const int tile_size,
   const int dim_a, const int dim_b,
   const int vol_a, const int vol_b,
   const int* __restrict__ shape_a, // output shape
@@ -54,8 +24,7 @@ extern "C" void c_tt_mapped(
   const double* __restrict__ data_in,
   double* __restrict__ data_out);
 
-extern "C" void c_tt_cpu_(
-  const int tile_size,
+extern "C" void c_tt_cpu(
   const int dim_a, const int dim_b,
   const int vol_a, const int vol_b,
   const int* __restrict__ shape_a, // output shape
@@ -197,13 +166,12 @@ struct tnsrtrns_task
       {
         free(p);
         p = nullptr;
-        return 0;
       }
       else
       {
         void *pt=p;
         p = nullptr;
-        return cudaFree(pt);
+        cudaFree(pt);
       }
     }
     return 0;
@@ -289,19 +257,14 @@ struct tnsrtrns_task
     }
   }
 
-  tnsrtrns_task(size_t sztype,size_t n, int alloc_type):szElm(sztype),n_dim(n),dims(n),perm(n),allocator_type(alloc_type){}
+  tnsrtrns_task(size_t sztype,size_t n, int alloc_type)
+  : szElm(sztype),n_dim(n),dims(n),perm(n),allocator_type(alloc_type) {}
+
   tnsrtrns_task(size_t sztype,size_t n):tnsrtrns_task(sztype,n,0) {}
 
-  tnsrtrns_task(size_t sztype,std::vector<int> &ndp_list, int alloc_type):
-    szElm(sztype),
-    allocator_type(0),
-    data_dst(nullptr),
-    data_src(nullptr),
-    va2i(nullptr),
-    vb2i(nullptr),
-    ia2s(nullptr),
-    ia2g(nullptr),
-    ib2g(nullptr),
+  tnsrtrns_task(size_t sztype,std::vector<int> &ndp_list, int alloc_type)
+  : szElm(sztype), allocator_type(0), data_dst(nullptr), data_src(nullptr),
+    va2i(nullptr), vb2i(nullptr), ia2s(nullptr), ia2g(nullptr), ib2g(nullptr),
     n_dim(ndp_list[0]),
     dims(ndp_list.begin()+1,ndp_list.begin()+n_dim+1), // +1 for past-the-end
     perm(ndp_list.begin()+n_dim+1,ndp_list.begin()+2*n_dim+1)
@@ -309,33 +272,8 @@ struct tnsrtrns_task
     calc_coef();
   }
 
-  // Default to memalign() as allocator, if not specified
+  // Default to host allocator, if not specified
   tnsrtrns_task(size_t sztype,std::vector<int> &ndp_list):tnsrtrns_task(sztype,ndp_list,0){}
-
-  // Move constructor is used by vector::emplace_back()
-  // Default move constructor doesn't handle allocated pointers
-  tnsrtrns_task(tnsrtrns_task&& other)
-  : szElm(other.szElm),
-    allocator_type(other.allocator_type),
-    data_dst(other.data_dst),
-    data_src(other.data_src),
-    va2i(other.va2i),
-    vb2i(other.vb2i),
-    ia2s(other.ia2s),
-    ia2g(other.ia2g),
-    ib2g(other.ib2g),    
-    n_dim(other.n_dim),
-    dims(std::move(other.dims)),
-    perm(std::move(other.perm))
-  {
-    other.data_dst = nullptr;
-    other.data_src = nullptr;
-    other.va2i = nullptr;
-    other.vb2i = nullptr;
-    other.ia2s = nullptr;
-    other.ia2g = nullptr;
-    other.ib2g = nullptr;
-  }
 
   ~tnsrtrns_task()
   {
