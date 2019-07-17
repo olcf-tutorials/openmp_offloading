@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <cstdlib>
-#include <omp.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -10,7 +9,6 @@
 #include <iomanip>
 #include <algorithm>
 #include <numeric>
-//#include <cuda_runtime.h>
 #include <omp.h>
 #include "tnsrtrns.h"
 
@@ -54,22 +52,24 @@ int main(int argc, char *argv[])
   std::sort(q.begin(),q.end(),[&](const int a, const int b)
     {return (task_list[a]->vol_total > task_list[b]->vol_total);});
 
+  std::cout << "Task execution order:  ";
   for (auto &iq : q) std::cout << iq << " ";
   std::cout << std::endl;
 
   size_t szTotal=0;
 
-  std::cout << "Allocating arrays..." << std::endl ;
+  std::cout << "Initializing random arrays... ";
   #pragma omp parallel for schedule(dynamic,1) reduction(+:szTotal) private(i_task)
   for (size_t it=0;it<n_task;it++)
   {
     i_task = q[it];
+
     if (task_list[i_task]->alloc_data()!=0)
-    {
       #pragma omp critical
-      std::cout << "Failed for i_task=" << i_task << ". Probably out of memory." << std::endl;
-    }
+      std::cout << std::endl << "Failed for i_task=" << i_task << ". Probably out of memory." << std::endl;
+
     szTotal += task_list[i_task]->vol_total;
+
     #pragma omp simd
     for (size_t i=0;i<task_list[i_task]->vol_total;i++)
       ((double*)task_list[i_task]->data_src)[i]=i;
@@ -78,25 +78,40 @@ int main(int argc, char *argv[])
 
   double ts, te;
 
-//
-// OpenMP4.5 mapped data_dst
-//
   ts=omp_get_wtime();
   #pragma omp parallel for schedule(dynamic,1) private(i_task)
   for (size_t it=0;it<n_task;it++)
   {
     i_task = q[it];
-    c_tt_mapped( task_list[i_task]->dim_a,
-                 task_list[i_task]->dim_b,
-                 task_list[i_task]->vol_a,
-                 task_list[i_task]->vol_b,
-                 task_list[i_task]->va2i,
-                 task_list[i_task]->vb2i,
-                 task_list[i_task]->ia2s,
-                 task_list[i_task]->ia2g,
-                 task_list[i_task]->ib2g,
-                 (const double*)(task_list[i_task]->data_src),
-                 (double*)(task_list[i_task]->data_dst) );
+
+    // Aliases for OpenMP data directives
+    auto const &      dim_a = task_list[i_task]->dim_a;
+    auto const &      dim_b = task_list[i_task]->dim_b;
+    auto const &      vol_a = task_list[i_task]->vol_a;
+    auto const &      vol_b = task_list[i_task]->vol_b;
+    auto const &  vol_total = task_list[i_task]->vol_total;
+    auto const &    shape_a = task_list[i_task]->va2i;
+    auto const &    shape_b = task_list[i_task]->vb2i;
+    auto const & stride_a_l = task_list[i_task]->ia2s;
+    auto const & stride_a_g = task_list[i_task]->ia2g;
+    auto const &   stride_b = task_list[i_task]->ib2g;
+    auto const &    data_in = static_cast<double*>(task_list[i_task]->data_src);
+    auto const &   data_out = static_cast<double*>(task_list[i_task]->data_dst);
+
+    #pragma omp target enter data nowait                                    \
+      map(to:     data_in[:vol_total], shape_a[:dim_a], shape_b[:dim_b],    \
+                  stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b]) \
+      map(alloc:  data_out[:vol_total])                                     \
+      depend(out: data_in[:vol_total], data_out[:vol_total],                \
+                  shape_a[:dim_a], shape_b[:dim_b],                         \
+                  stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b])
+    c_tt_mapped( dim_a, dim_b, vol_a, vol_b, shape_a, shape_b, 
+                 stride_a_l, stride_a_g, stride_b, data_in, data_out);
+    #pragma omp target exit data nowait                                      \
+      depend(in:   data_out[:vol_total])                                     \
+      map(from:    data_out[:vol_total])                                     \
+      map(release: data_in[:vol_total], shape_a[:dim_a], shape_b[:dim_b],    \
+                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b])
   }
   #pragma omp taskwait
   te=omp_get_wtime();
