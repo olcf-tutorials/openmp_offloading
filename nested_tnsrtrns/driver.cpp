@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
                   shape_a[:dim_a], shape_b[:dim_b],                         \
                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b])
     c_tt_mapped( dim_a, dim_b, vol_a, vol_b, shape_a, shape_b, 
-                 stride_a_l, stride_a_g, stride_b, data_in, data_out);
+                 stride_a_l, stride_a_g, stride_b, data_in, data_out );
     #pragma omp target exit data nowait                                      \
       depend(in:   data_out[:vol_total])                                     \
       map(from:    data_out[:vol_total])                                     \
