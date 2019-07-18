@@ -1,6 +1,9 @@
+#include "tgt_guard_c.h"
+
 #define tile_size_c 5900
 
 extern "C" void c_tt_mapped( //{{{
+  int i_task,
   const int dim_a, const int dim_b,
   const int vol_a, const int vol_b,
   const int* __restrict__ shape_a,    // output shape
@@ -20,10 +23,14 @@ extern "C" void c_tt_mapped( //{{{
 //   stride_a_g[0:dim_a]
 //   stride_b  [0:dim_b]
 
-  #pragma omp target teams distribute thread_limit(256) nowait \
-    depend(in:  data_in[:vol_a*vol_b], shape_a[:dim_a], shape_b[:dim_b], \
+  _ACCTGT_(parallel loop gang async(i_task)                   \
+    present(data_in[0:vol_a*vol_b], data_out[0:vol_a*vol_b],                \
+            shape_a[0:dim_a], shape_b[0:dim_b],                             \
+            stride_a_l[0:dim_a], stride_a_g[0:dim_a], stride_b[0:dim_b]))
+  _OMPTGT_(target teams distribute thread_limit(256) nowait               \
+    depend(in:  data_in[:vol_a*vol_b], shape_a[:dim_a], shape_b[:dim_b],  \
                 stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b]) \
-    depend(out: data_out[:vol_a*vol_b])
+    depend(out: data_out[:vol_a*vol_b]) )
   for (int ib=0;ib<vol_b;ib++)
   {
     double s[tile_size_c];
@@ -42,13 +49,15 @@ extern "C" void c_tt_mapped( //{{{
       it_b = im_b;
     }
 
-    #pragma omp parallel for
+    _ACCTGT_(loop vector)
+    _OMPTGT_(parallel for)
     for (int ia=0;ia<vol_a;ia++)
     {
       s[ia] = data_in[ia+ib*vol_a];
     }
 
-    #pragma omp parallel for
+    _ACCTGT_(loop vector)
+    _OMPTGT_(parallel for)
     for (int ia=0;ia<vol_a;ia++)
     {
       int it_a=ia, id_a=id_b, is=0, im_a, ic;

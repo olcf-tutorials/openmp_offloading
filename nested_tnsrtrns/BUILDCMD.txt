@@ -1,2 +1,2 @@
 ml cuda
-xlC -qsmp=omp -qoffload -O3 -std=c++11 tnsrtrns.cpp driver.cpp -o tt_xlomp4.x
+xlC -D_OL_OMP_ -qsmp=omp -qoffload -O3 -std=c++11 tnsrtrns.cpp driver.cpp -o tt_xlomp4.x

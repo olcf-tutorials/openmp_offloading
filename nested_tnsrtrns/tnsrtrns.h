@@ -14,6 +14,7 @@
 #endif
 
 extern "C" void c_tt_mapped(
+  int i_task,
   const int dim_a, const int dim_b,
   const int vol_a, const int vol_b,
   const int* __restrict__ shape_a, // output shape

@@ -11,6 +11,7 @@
 #include <numeric>
 #include <omp.h>
 #include "tnsrtrns.h"
+#include "tgt_guard_c.h"
 
 
 int main(int argc, char *argv[])
@@ -85,33 +86,43 @@ int main(int argc, char *argv[])
     i_task = q[it];
 
     // Aliases for OpenMP data directives
-    auto const &      dim_a = task_list[i_task]->dim_a;
-    auto const &      dim_b = task_list[i_task]->dim_b;
-    auto const &      vol_a = task_list[i_task]->vol_a;
-    auto const &      vol_b = task_list[i_task]->vol_b;
-    auto const &  vol_total = task_list[i_task]->vol_total;
-    auto const &    shape_a = task_list[i_task]->va2i;
-    auto const &    shape_b = task_list[i_task]->vb2i;
-    auto const & stride_a_l = task_list[i_task]->ia2s;
-    auto const & stride_a_g = task_list[i_task]->ia2g;
-    auto const &   stride_b = task_list[i_task]->ib2g;
-    auto const &    data_in = static_cast<double*>(task_list[i_task]->data_src);
-    auto const &   data_out = static_cast<double*>(task_list[i_task]->data_dst);
+    // PGI gets confused with references, but copies are OK
+    auto const      dim_a = task_list[i_task]->dim_a;
+    auto const      dim_b = task_list[i_task]->dim_b;
+    auto const      vol_a = task_list[i_task]->vol_a;
+    auto const      vol_b = task_list[i_task]->vol_b;
+    auto const  vol_total = task_list[i_task]->vol_total;
+    auto const    shape_a = task_list[i_task]->va2i;
+    auto const    shape_b = task_list[i_task]->vb2i;
+    auto const stride_a_l = task_list[i_task]->ia2s;
+    auto const stride_a_g = task_list[i_task]->ia2g;
+    auto const   stride_b = task_list[i_task]->ib2g;
+    auto const    data_in = static_cast<double*>(task_list[i_task]->data_src);
+    auto const   data_out = static_cast<double*>(task_list[i_task]->data_dst);
 
-    #pragma omp target enter data nowait                                    \
+    _ACCTGT_( enter data async(i_task) \
+      copyin( data_in[0:vol_total], shape_a[0:dim_a], shape_b[0:dim_b],     \
+              stride_a_l[0:dim_a], stride_a_g[0:dim_a], stride_b[0:dim_b] ) \
+      create( data_out[0:vol_total] ) )
+    _OMPTGT_( target enter data nowait                                      \
       map(to:     data_in[:vol_total], shape_a[:dim_a], shape_b[:dim_b],    \
                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b]) \
       map(alloc:  data_out[:vol_total])                                     \
       depend(out: data_in[:vol_total], data_out[:vol_total],                \
                   shape_a[:dim_a], shape_b[:dim_b],                         \
-                  stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b])
-    c_tt_mapped( dim_a, dim_b, vol_a, vol_b, shape_a, shape_b, 
+                  stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b]) )
+    c_tt_mapped( i_task,dim_a, dim_b, vol_a, vol_b, shape_a, shape_b, 
                  stride_a_l, stride_a_g, stride_b, data_in, data_out);
-    #pragma omp target exit data nowait                                      \
+    _ACCTGT_( exit data async(i_task) \
+      copyout( data_out[0:vol_total] )                                     \
+      delete(  data_in[0:vol_total], shape_a[0:dim_a], shape_b[0:dim_b],    \
+               stride_a_l[0:dim_a], stride_a_g[0:dim_a], stride_b[0:dim_b]) )
+    _ACCTGT_(wait(i_task))
+    _OMPTGT_( target exit data nowait                                        \
       depend(in:   data_out[:vol_total])                                     \
       map(from:    data_out[:vol_total])                                     \
       map(release: data_in[:vol_total], shape_a[:dim_a], shape_b[:dim_b],    \
-                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b])
+                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b]) )
   }
   #pragma omp taskwait
   te=omp_get_wtime();
