@@ -23,9 +23,9 @@ extern "C" void c_tt_mapped( //{{{
 //   stride_a_g[0:dim_a]
 //   stride_b  [0:dim_b]
 
-  _ACCTGT_(parallel loop gang async(i_task)                   \
-    present(data_in[0:vol_a*vol_b], data_out[0:vol_a*vol_b],                \
-            shape_a[0:dim_a], shape_b[0:dim_b],                             \
+  _ACCTGT_(parallel loop gang async(i_task)                               \
+    present(data_in[0:vol_a*vol_b], data_out[0:vol_a*vol_b],              \
+            shape_a[0:dim_a], shape_b[0:dim_b],                           \
             stride_a_l[0:dim_a], stride_a_g[0:dim_a], stride_b[0:dim_b]))
   _OMPTGT_(target teams distribute thread_limit(256) nowait               \
     depend(in:  data_in[:vol_a*vol_b], shape_a[:dim_a], shape_b[:dim_b],  \
