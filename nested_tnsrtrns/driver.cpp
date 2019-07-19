@@ -102,8 +102,7 @@ int main(int argc, char *argv[])
       map(to:     data_in[:vol_total], shape_a[:dim_a], shape_b[:dim_b],    \
                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b]) \
       map(alloc:  data_out[:vol_total])                                     \
-      depend(out: data_in[:vol_total], data_out[:vol_total],                \
-                  shape_a[:dim_a], shape_b[:dim_b],                         \
+      depend(out: data_in[:vol_total], shape_a[:dim_a], shape_b[:dim_b],    \
                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b])
     c_tt_mapped( dim_a, dim_b, vol_a, vol_b, shape_a, shape_b, 
                  stride_a_l, stride_a_g, stride_b, data_in, data_out );
