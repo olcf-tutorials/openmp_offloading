@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <numeric>
 #include <omp.h>
+#include <cuda_runtime.h>
 #include "tnsrtrns.h"
 
 
@@ -78,8 +79,14 @@ int main(int argc, char *argv[])
 
   double ts, te;
 
+// A dummy kernel is required for LLVM to trigger proper initialization for OpenMP target offloading
+#pragma omp target map(from:ts)
+  {
+    ts=1.+szTotal;
+  }
+
   ts=omp_get_wtime();
-  #pragma omp parallel for schedule(dynamic,1) private(i_task)
+  #pragma omp parallel for schedule(static,1) private(i_task)
   for (size_t it=0;it<n_task;it++)
   {
     i_task = q[it];
@@ -98,24 +105,47 @@ int main(int argc, char *argv[])
     auto const &    data_in = static_cast<double*>(task_list[i_task]->data_src);
     auto const &   data_out = static_cast<double*>(task_list[i_task]->data_dst);
 
-    #pragma omp target enter data nowait                                    \
+    #pragma omp target enter data nowait \
+      map(alloc:  data_out[:vol_total] )                                    \
       map(to:     data_in[:vol_total], shape_a[:dim_a], shape_b[:dim_b],    \
                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b]) \
-      map(alloc:  data_out[:vol_total])                                     \
-      depend(out: data_in[:vol_total], data_out[:vol_total],                \
-                  shape_a[:dim_a], shape_b[:dim_b],                         \
+      depend(out: data_in[:vol_total], data_out[:vol_total], shape_a[:dim_a], shape_b[:dim_b], \
                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b])
-    c_tt_mapped( dim_a, dim_b, vol_a, vol_b, shape_a, shape_b, 
-                 stride_a_l, stride_a_g, stride_b, data_in, data_out );
-    #pragma omp target exit data nowait                                      \
-      depend(in:   data_out[:vol_total])                                     \
-      map(from:    data_out[:vol_total])                                     \
-      map(release: data_in[:vol_total], shape_a[:dim_a], shape_b[:dim_b],    \
-                   stride_a_l[:dim_a], stride_a_g[:dim_a], stride_b[:dim_b])
+
+    //fprintf(stdout,"[%d] %d a \n",omp_get_thread_num(),i_task), fflush(stdout);
+
+    #pragma omp task \
+      depend(in:    data_in[:vol_total], \
+                    shape_a[:dim_a],     \
+                    shape_b[:dim_b],     \
+                 stride_a_l[:dim_a],     \
+                 stride_a_g[:dim_a],     \
+                   stride_b[:dim_b])     \
+      depend(out:  data_out[:vol_total]  )
+    {
+    #pragma omp target data \
+      use_device_ptr(data_in,data_out,shape_a,shape_b,stride_a_l,stride_a_g,stride_b)
+    {
+    //fprintf(stdout,"[%d] %d b \n",omp_get_thread_num(),i_task), fflush(stdout);
+    c_tt_cuda( dim_a, dim_b, vol_a, vol_b, shape_a, shape_b, stride_a_l, stride_a_g, stride_b, data_in, data_out );
+    }
+    //fprintf(stdout,"[%d] %d c \n",omp_get_thread_num(),i_task), fflush(stdout);
+    }
+
+    #pragma omp target exit data nowait \
+      depend(in:      data_out[:vol_total]) \
+      map(from:       data_out[:vol_total]) \
+      map(release:     data_in[:vol_total], \
+                       shape_a[:dim_a],     \
+                       shape_b[:dim_b],     \
+                    stride_a_l[:dim_a],     \
+                    stride_a_g[:dim_a],     \
+                      stride_b[:dim_b] )
+
+    //fprintf(stdout,"[%d] %d d \n",omp_get_thread_num(),i_task), fflush(stdout);
   }
-  #pragma omp taskwait
   te=omp_get_wtime();
-  std::cout<<"OpenMP4.5 offload with mapped data_dst:"<<std::endl;
+  std::cout<<"Wall time: "<<std::endl;
   std::cout<<te-ts<<std::endl;
 
 }

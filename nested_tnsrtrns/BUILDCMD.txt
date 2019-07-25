@@ -1,2 +1,3 @@
-ml cuda
-xlC -qsmp=omp -qoffload -O3 -std=c++11 tnsrtrns.cpp driver.cpp -o tt_xlomp4.x
+ml cuda llvm
+nvcc -arch=sm_70 -Xcompiler -fPIC --shared -o k_tt.so k_tt.cu
+clang++ -D_NO_CUDA_MANAGED_MEM_ -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda -std=c++11 k_tt.so driver.cpp -o run-llvm.x

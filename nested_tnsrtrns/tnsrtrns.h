@@ -6,14 +6,25 @@
 #include <algorithm>
 #include <numeric>
 
-#ifdef _NO_CUDA_
+#ifdef _NO_CUDA_MANAGED_MEM_
 #define cudaMallocManaged(p,s) posix_memalign((p),128,(s))
 #define cudaFree(p) free((p))
 #else
 #include <cuda_runtime.h>
 #endif
 
-extern "C" void c_tt_mapped(
+extern "C" void c_tt_acc(
+  const int dim_a, const int dim_b,
+  const int vol_a, const int vol_b,
+  const int* __restrict__ shape_a, // output shape
+  const int* __restrict__ shape_b, // input shape
+  const int* __restrict__ stride_a_l, // local s stride for output shape
+  const int* __restrict__ stride_a_g, // global output stride for output shape
+  const int* __restrict__ stride_b, // global output stride for input shape
+  const double* __restrict__ data_in,
+  double* __restrict__ data_out);
+
+extern "C" void c_tt_cuda(
   const int dim_a, const int dim_b,
   const int vol_a, const int vol_b,
   const int* __restrict__ shape_a, // output shape
